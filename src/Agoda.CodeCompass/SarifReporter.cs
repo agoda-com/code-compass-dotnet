@@ -1,7 +1,5 @@
-
-
 using System.Text.Json;
-using Agoda.CodeCompass.Models.Agoda.CodeCompass.Data;
+using Agoda.CodeCompass.Data;
 using Microsoft.CodeAnalysis;
 
 public class SarifReporter
