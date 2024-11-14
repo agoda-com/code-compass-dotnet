@@ -7,7 +7,15 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <NoPackageAnalysis>true</NoPackageAnalysis>
   </PropertyGroup>
-
+	<PropertyGroup>
+		<Authors>Joel Dickson</Authors>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/agoda-com/code-compass-dotnet</PackageProjectUrl>
+		<PackageIcon>AgodaAnalyzersAgoji.png</PackageIcon>
+		<RepositoryUrl>https://github.com/agoda-com/code-compass-dotnet</RepositoryUrl>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<Description>CodeCompass is a .NET analyzer that helps you navigate the treacherous waters of technical debt. It analyzes your code and produces standardized SARIF reports that quantify technical debt in terms of estimated remediation time, categorization, and priority.</Description>
+	</PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Build.Framework" Version="17.8.3" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.3" PrivateAssets="all" />
@@ -15,11 +23,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Agoda.CodeCompass\Agoda.CodeCompass.csproj" />
+    <None Include="build\*.props" Pack="true" PackagePath="build" />
+    <None Include="build\*.targets" Pack="true" PackagePath="build" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="build\*.props" Pack="true" PackagePath="build" />
-    <None Include="build\*.targets" Pack="true" PackagePath="build" />
+    <None Remove="AgodaAnalyzersAgoji.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="AgodaAnalyzersAgoji.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

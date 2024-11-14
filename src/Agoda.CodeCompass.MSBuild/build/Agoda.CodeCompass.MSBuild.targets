@@ -1,19 +1,15 @@
 <Project>
-  <UsingTask 
-    TaskName="Agoda.CodeCompass.MSBuild.TechDebtReportTask" 
-    AssemblyFile="$(MSBuildThisFileDirectory)../tools/Agoda.CodeCompass.MSBuild.dll" />
+	<UsingTask
+		TaskName="Agoda.CodeCompass.MSBuild.TechDebtSarifTask"
+		AssemblyFile="$(MSBuildThisFileDirectory)../tools/net8/Agoda.CodeCompass.MSBuild.dll" />
 
-  <Target Name="GenerateTechDebtReport" AfterTargets="Build">
-    <ItemGroup>
-      <AnalyzerAssembly Include="$(MSBuildThisFileDirectory)../tools/Agoda.CodeCompass.dll" />
-      <CompilationAssembly Include="@(ReferencePath)" />
-      <SourceFile Include="@(Compile)" />
-    </ItemGroup>
+	<Target Name="ProcessTechDebtSarif" AfterTargets="Build" Condition="'$(ErrorLog)' != ''">
+		<PropertyGroup>
+			<TechDebtSarifPath>$(MSBuildProjectDirectory)/buildlog.sarif</TechDebtSarifPath>
+		</PropertyGroup>
 
-    <TechDebtReportTask
-      AnalyzerAssemblyPaths="@(AnalyzerAssembly)"
-      CompilationAssemblyPaths="@(CompilationAssembly)"
-      SourceFiles="@(SourceFile)"
-      OutputPath="$(TechDebtReportOutputPath)" />
-  </Target>
+		<TechDebtSarifTask
+			InputPath="$(ErrorLog)"
+			OutputPath="$(TechDebtSarifPath)" />
+	</Target>
 </Project>

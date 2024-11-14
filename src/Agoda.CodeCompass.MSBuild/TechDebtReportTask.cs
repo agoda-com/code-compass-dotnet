@@ -1,22 +1,19 @@
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 using System.Collections.Immutable;
+using System.Text.Json;
 using Task = Microsoft.Build.Utilities.Task;
 
 namespace Agoda.CodeCompass.MSBuild;
-
-public class TechDebtReportTask : Task
+// TechDebtSarifTask.cs
+public class TechDebtSarifTask : Task
 {
     [Required]
-    public string[] AnalyzerAssemblyPaths { get; set; } = Array.Empty<string>();
-
-    [Required]
-    public string[] CompilationAssemblyPaths { get; set; } = Array.Empty<string>();
-
-    [Required]
-    public string[] SourceFiles { get; set; } = Array.Empty<string>();
+    public string InputPath { get; set; } = string.Empty;
 
     [Required]
     public string OutputPath { get; set; } = string.Empty;
@@ -25,72 +22,75 @@ public class TechDebtReportTask : Task
     {
         try
         {
-            // Load all analyzer assemblies
-            var analyzers = LoadAnalyzers();
-            
-            // Create compilation
-            var compilation = CreateCompilation();
-            
-            // Run analysis
-            var compilationWithAnalyzers = compilation.WithAnalyzers(
-                ImmutableArray.Create(analyzers.ToArray()));
-            
-            var diagnostics = compilationWithAnalyzers
-                .GetAnalyzerDiagnosticsAsync()
-                .GetAwaiter()
-                .GetResult();
-
-            // Generate and save SARIF report
-            var sarifOutput = SarifReporter.GenerateSarifReport(diagnostics);
-            File.WriteAllText(OutputPath, sarifOutput);
-
+            var inputSarif = File.ReadAllText(InputPath);
+            var inputDiagnostics = ParseSarifDiagnostics(inputSarif);
+            var techDebtSarif = SarifReporter.GenerateSarifReport(inputDiagnostics);
+            File.WriteAllText(OutputPath, techDebtSarif);
             return true;
+        }
+        catch (InvalidDataException iex)
+        {
+            return false;
         }
         catch (Exception ex)
         {
-            Log.LogError($"Failed to generate tech debt report: {ex.Message}");
+            Log.LogError($"Failed to process SARIF report: {ex.Message}");
             return false;
         }
     }
 
-    private IEnumerable<DiagnosticAnalyzer> LoadAnalyzers()
+    private IEnumerable<Diagnostic> ParseSarifDiagnostics(string sarifContent)
     {
-        foreach (var path in AnalyzerAssemblyPaths)
-        {
-            var assembly = System.Runtime.Loader.AssemblyLoadContext
-                .Default
-                .LoadFromAssemblyPath(path);
-
-            var analyzerTypes = assembly.GetTypes()
-                .Where(t => !t.IsAbstract && 
-                           typeof(DiagnosticAnalyzer).IsAssignableFrom(t));
-
-            foreach (var analyzerType in analyzerTypes)
-            {
-                if (Activator.CreateInstance(analyzerType) is DiagnosticAnalyzer analyzer)
-                {
-                    yield return analyzer;
-                }
-            }
-        }
+        // Parse SARIF JSON into list of Diagnostics
+        var sarif = JsonSerializer.Deserialize<SarifReport>(sarifContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        return sarif.Runs.SelectMany(r => r.Results)
+            .Select(r => CreateDiagnosticFromSarif(r));
     }
 
-    private Compilation CreateCompilation()
+    private Diagnostic CreateDiagnosticFromSarif(Result result)
     {
-        var syntaxTrees = SourceFiles
-            .Select(file => Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree
-                .ParseText(File.ReadAllText(file), path: file))
-            .ToArray();
+        if (result.Locations.Length == 0) throw new InvalidDataException("Sarif input was wrong");
 
-        var references = CompilationAssemblyPaths
-            .Select(path => MetadataReference.CreateFromFile(path))
-            .ToArray();
+        var lineSpan = result.Locations.FirstOrDefault()?.PhysicalLocation?.Region;
+        var linePosition = new LinePositionSpan(
+            new LinePosition(
+                (lineSpan?.StartLine ?? 1) - 1,
+                (lineSpan?.StartColumn ?? 1) - 1),
+            new LinePosition(
+                (lineSpan?.EndLine ?? 1) - 1,
+                (lineSpan?.EndColumn ?? 1) - 1)
+        );
 
-        return Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
-            "TechDebtAnalysis",
-            syntaxTrees,
-            references,
-            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
-                (OutputKind)Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest));
+        var filePath = result.Locations.FirstOrDefault()?.PhysicalLocation?.ArtifactLocation?.Uri ?? "";
+        var sourceText = SourceText.From(File.ReadAllText(filePath));
+        var syntaxTree = CSharpSyntaxTree.ParseText(sourceText);
+
+        var location = Microsoft.CodeAnalysis.Location.Create(
+            syntaxTree,
+            new TextSpan(0, 0));
+
+        var descriptor = new DiagnosticDescriptor(
+            id: result.RuleId,
+            title: result.Message.Text,
+            messageFormat: result.Message.Text,
+            category: result.Properties?.TechDebt?.Category ?? "Default",
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+        var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+        if (result.Properties?.TechDebt != null)
+        {
+            properties.Add("techDebtMinutes", result.Properties.TechDebt.Minutes.ToString());
+            properties.Add("techDebtCategory", result.Properties.TechDebt.Category);
+            properties.Add("techDebtPriority", result.Properties.TechDebt.Priority);
+            properties.Add("techDebtRationale", result.Properties.TechDebt.Rationale);
+            properties.Add("techDebtRecommendation", result.Properties.TechDebt.Recommendation);
+        }
+
+        return Diagnostic.Create(
+            descriptor,
+            location,
+            properties.ToImmutable(),
+            result.Message.Text);
     }
 }

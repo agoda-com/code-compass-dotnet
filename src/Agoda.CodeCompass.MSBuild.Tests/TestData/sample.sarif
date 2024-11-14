@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Microsoft.CodeAnalysis.CSharp",
+          "version": "4.8.0",
+          "rules": [
+            {
+              "id": "CS8602",
+              "shortDescription": {
+                "text": "Dereference of a possibly null reference"
+              }
+            },
+            {
+              "id": "CA1822",
+              "shortDescription": {
+                "text": "Member could be marked as static"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CS8602",
+          "message": {
+            "text": "Possible dereference of null reference 'user'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Test.cs"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 13,
+                  "endLine": 10,
+                  "endColumn": 24
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CA1822",
+          "message": {
+            "text": "Member DoSomething does not access instance data and can be marked as static"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Test.cs"
+                },
+                "region": {
+                  "startLine": 15,
+                  "startColumn": 17,
+                  "endLine": 15,
+                  "endColumn": 28
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Agoda.CodeCompass", "Agoda.CodeCompass\Agoda.CodeCompass.csproj", "{7CB8A73E-2302-4BD8-A7AC-F6D6FF60204E}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Agoda.CodeCompass.MSBuild", "Agoda.CodeCompass.MSBuild\Agoda.CodeCompass.MSBuild.csproj", "{0BB5F054-97D3-4B0C-9398-EAB69D258E7B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{314049A9-07D2-46B3-BBC7-EC97DEBDE59F}"
@@ -12,20 +10,22 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\README.md = ..\README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Agoda.CodeCompass.MSBuild.Tests", "Agoda.CodeCompass.MSBuild.Tests\Agoda.CodeCompass.MSBuild.Tests.csproj", "{DB2A783C-2700-4778-96B6-EB83E8121C97}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{7CB8A73E-2302-4BD8-A7AC-F6D6FF60204E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7CB8A73E-2302-4BD8-A7AC-F6D6FF60204E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7CB8A73E-2302-4BD8-A7AC-F6D6FF60204E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7CB8A73E-2302-4BD8-A7AC-F6D6FF60204E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0BB5F054-97D3-4B0C-9398-EAB69D258E7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0BB5F054-97D3-4B0C-9398-EAB69D258E7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0BB5F054-97D3-4B0C-9398-EAB69D258E7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0BB5F054-97D3-4B0C-9398-EAB69D258E7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB2A783C-2700-4778-96B6-EB83E8121C97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB2A783C-2700-4778-96B6-EB83E8121C97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB2A783C-2700-4778-96B6-EB83E8121C97}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB2A783C-2700-4778-96B6-EB83E8121C97}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
