@@ -26,14 +26,9 @@
     <None Include="build\*.props" Pack="true" PackagePath="build" />
     <None Include="build\*.targets" Pack="true" PackagePath="build" />
   </ItemGroup>
-
   <ItemGroup>
-    <None Remove="AgodaAnalyzersAgoji.png" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="AgodaAnalyzersAgoji.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+	  <Content Include="AgodaAnalyzersAgoji.png" Pack="true" PackagePath="">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
   </ItemGroup>
 </Project>
