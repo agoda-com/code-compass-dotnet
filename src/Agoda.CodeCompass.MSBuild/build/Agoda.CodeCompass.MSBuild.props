@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <TechDebtReportOutputPath>$(MSBuildProjectDirectory)/tech-debt-report.sarif</TechDebtReportOutputPath>
+  </PropertyGroup>
+</Project>

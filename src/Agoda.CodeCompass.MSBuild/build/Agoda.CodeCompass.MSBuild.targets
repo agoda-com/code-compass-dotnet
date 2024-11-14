@@ -1,0 +1,19 @@
+<Project>
+  <UsingTask 
+    TaskName="Agoda.CodeCompass.MSBuild.TechDebtReportTask" 
+    AssemblyFile="$(MSBuildThisFileDirectory)../tools/Agoda.CodeCompass.MSBuild.dll" />
+
+  <Target Name="GenerateTechDebtReport" AfterTargets="Build">
+    <ItemGroup>
+      <AnalyzerAssembly Include="$(MSBuildThisFileDirectory)../tools/Agoda.CodeCompass.dll" />
+      <CompilationAssembly Include="@(ReferencePath)" />
+      <SourceFile Include="@(Compile)" />
+    </ItemGroup>
+
+    <TechDebtReportTask
+      AnalyzerAssemblyPaths="@(AnalyzerAssembly)"
+      CompilationAssemblyPaths="@(CompilationAssembly)"
+      SourceFiles="@(SourceFile)"
+      OutputPath="$(TechDebtReportOutputPath)" />
+  </Target>
+</Project>
