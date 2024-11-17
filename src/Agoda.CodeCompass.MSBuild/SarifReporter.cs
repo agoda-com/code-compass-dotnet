@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Agoda.CodeCompass.Data;
+using Agoda.CodeCompass.MSBuild.Sarif;
 using Microsoft.CodeAnalysis;
+using Location = Agoda.CodeCompass.MSBuild.Sarif.Location;
 
 namespace Agoda.CodeCompass.MSBuild;
 

@@ -9,6 +9,7 @@
   <ItemGroup>
     <None Remove="TestData\invalid.sarif" />
     <None Remove="TestData\sample.sarif" />
+    <None Remove="TestData\v1.sarif" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,11 +19,15 @@
     <Content Include="TestData\sample.sarif">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="TestData\v1.sarif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
     <PackageReference Include="NUnit" Version="4.2.2" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
     <PackageReference Include="Shouldly" Version="4.2.1" />

@@ -1,12 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <BuildOutputTargetFolder>tools</BuildOutputTargetFolder>
-    <DevelopmentDependency>true</DevelopmentDependency>
-    <NoPackageAnalysis>true</NoPackageAnalysis>
-  </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<BuildOutputTargetFolder>tools</BuildOutputTargetFolder>
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<NoPackageAnalysis>true</NoPackageAnalysis>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<IncludeReferencedProjects>true</IncludeReferencedProjects>
+	</PropertyGroup>
+
 	<PropertyGroup>
 		<Authors>Joel Dickson</Authors>
 		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -16,19 +19,29 @@
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 		<Description>CodeCompass is a .NET analyzer that helps you navigate the treacherous waters of technical debt. It analyzes your code and produces standardized SARIF reports that quantify technical debt in terms of estimated remediation time, categorization, and priority.</Description>
 	</PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Build.Framework" Version="17.8.3" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.3" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
-  </ItemGroup>
 
-  <ItemGroup>
-    <None Include="build\*.props" Pack="true" PackagePath="build" />
-    <None Include="build\*.targets" Pack="true" PackagePath="build" />
-  </ItemGroup>
-  <ItemGroup>
-	  <Content Include="AgodaAnalyzersAgoji.png" Pack="true" PackagePath="">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Build.Framework" Version="17.8.3" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.8.3" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="build\*.props" Pack="true" PackagePath="build" />
+		<None Include="build\*.targets" Pack="true" PackagePath="build" />
+	</ItemGroup>
+
+	<Target Name="CollectRuntimeOutputs" BeforeTargets="GenerateNuspec">
+		<ItemGroup>
+			<_PackageFiles Include="$(OutputPath)\*.dll">
+				<BuildAction>None</BuildAction>
+				<PackagePath>tools\net8.0\</PackagePath>
+			</_PackageFiles>
+		</ItemGroup>
+	</Target>
+	<ItemGroup>
+		<Content Include="AgodaAnalyzersAgoji.png" Pack="true" PackagePath="">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 </Project>

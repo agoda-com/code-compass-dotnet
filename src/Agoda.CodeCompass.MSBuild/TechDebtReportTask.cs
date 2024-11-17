@@ -1,3 +1,4 @@
+using Agoda.CodeCompass.MSBuild.Sarif;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using Microsoft.CodeAnalysis;
@@ -9,7 +10,7 @@ using System.Text.Json;
 using Task = Microsoft.Build.Utilities.Task;
 
 namespace Agoda.CodeCompass.MSBuild;
-// TechDebtSarifTask.cs
+
 public class TechDebtSarifTask : Task
 {
     [Required]
@@ -20,6 +21,7 @@ public class TechDebtSarifTask : Task
 
     public override bool Execute()
     {
+        Log.LogMessage(MessageImportance.Normal, "Running TechDebtSarifTask");
         try
         {
             var inputSarif = File.ReadAllText(InputPath);
@@ -30,6 +32,7 @@ public class TechDebtSarifTask : Task
         }
         catch (InvalidDataException iex)
         {
+            Log.LogMessage("InvalidDataException was thrown");
             return false;
         }
         catch (Exception ex)
@@ -39,15 +42,7 @@ public class TechDebtSarifTask : Task
         }
     }
 
-    private IEnumerable<Diagnostic> ParseSarifDiagnostics(string sarifContent)
-    {
-        // Parse SARIF JSON into list of Diagnostics
-        var sarif = JsonSerializer.Deserialize<SarifReport>(sarifContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-        return sarif.Runs.SelectMany(r => r.Results)
-            .Select(r => CreateDiagnosticFromSarif(r));
-    }
-
-    private Diagnostic CreateDiagnosticFromSarif(Result result)
+    private Diagnostic CreateDiagnosticFromSarifV2(Result result)
     {
         if (result.Locations.Length == 0) throw new InvalidDataException("Sarif input was wrong");
 
@@ -93,4 +88,91 @@ public class TechDebtSarifTask : Task
             properties.ToImmutable(),
             result.Message.Text);
     }
+
+    public IEnumerable<Diagnostic> ParseSarifDiagnostics(string sarifContent)
+    {
+        // Detect SARIF version from the JSON
+        using var doc = JsonDocument.Parse(sarifContent);
+        var version = doc.RootElement.GetProperty("version").GetString();
+
+        return version switch
+        {
+            "1.0.0" => ParseSarifV1(sarifContent),
+            "2.1.0" => ParseSarifV2(sarifContent),
+            _ => throw new NotSupportedException($"Unsupported SARIF version: {version}")
+        };
+    }
+
+    private IEnumerable<Diagnostic> ParseSarifV1(string sarifContent)
+    {
+        var sarif = JsonSerializer.Deserialize<SarifV1Report>(sarifContent,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        return sarif.Runs.SelectMany(r => r.Results)
+            .Select(r => CreateDiagnosticFromSarifV1(r));
+    }
+
+    private IEnumerable<Diagnostic> ParseSarifV2(string sarifContent)
+    {
+        var sarif = JsonSerializer.Deserialize<SarifReport>(sarifContent,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        return sarif.Runs.SelectMany(r => r.Results)
+            .Select(r => CreateDiagnosticFromSarifV2(r));
+    }
+
+    private Diagnostic CreateDiagnosticFromSarifV1(V1Result result)
+    {
+        var lineSpan = result.Locations.FirstOrDefault()?.ResultFile?.Region;
+        var linePosition = new LinePositionSpan(
+            new LinePosition(
+                (lineSpan?.StartLine ?? 1) - 1,
+                (lineSpan?.StartColumn ?? 1) - 1),
+            new LinePosition(
+                (lineSpan?.EndLine ?? 1) - 1,
+                (lineSpan?.EndColumn ?? 1) - 1)
+        );
+
+        var filePath = result.Locations.FirstOrDefault()?.ResultFile?.Uri ?? "";
+        var sourceText = SourceText.From(File.ReadAllText(filePath));
+        var syntaxTree = CSharpSyntaxTree.ParseText(sourceText);
+        var location = Microsoft.CodeAnalysis.Location.Create(
+            syntaxTree,
+            new TextSpan(0, 0));
+
+        var descriptor = new DiagnosticDescriptor(
+            id: result.RuleId,
+            title: result.Message,
+            messageFormat: result.Message,
+            category: result.Properties?.TechDebt?.Category ?? "Default",
+            defaultSeverity: MapV1SeverityToDiagnosticSeverity(result.Level),
+            isEnabledByDefault: true);
+
+        var properties = ImmutableDictionary.CreateBuilder<string, string?>();
+        if (result.Properties?.TechDebt != null)
+        {
+            properties.Add("techDebtMinutes", result.Properties.TechDebt.Minutes.ToString());
+            properties.Add("techDebtCategory", result.Properties.TechDebt.Category);
+            properties.Add("techDebtPriority", result.Properties.TechDebt.Priority);
+            properties.Add("techDebtRationale", result.Properties.TechDebt.Rationale);
+            properties.Add("techDebtRecommendation", result.Properties.TechDebt.Recommendation);
+        }
+
+        return Diagnostic.Create(
+            descriptor,
+            location,
+            properties.ToImmutable(),
+            result.Message);
+    }
+
+    private DiagnosticSeverity MapV1SeverityToDiagnosticSeverity(string level)
+    {
+        return level?.ToLowerInvariant() switch
+        {
+            "error" => DiagnosticSeverity.Error,
+            "warning" => DiagnosticSeverity.Warning,
+            "info" => DiagnosticSeverity.Info,
+            "note" => DiagnosticSeverity.Hidden,
+            _ => DiagnosticSeverity.Warning
+        };
+    }
 }
+

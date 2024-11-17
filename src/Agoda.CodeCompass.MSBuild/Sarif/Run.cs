@@ -1,4 +1,4 @@
-using Agoda.CodeCompass.MSBuild;
+using Agoda.CodeCompass.MSBuild.Sarif;
 
 public class Run
 {

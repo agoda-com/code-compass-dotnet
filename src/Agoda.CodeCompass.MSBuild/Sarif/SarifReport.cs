@@ -1,4 +1,4 @@
-namespace Agoda.CodeCompass.MSBuild; 
+namespace Agoda.CodeCompass.MSBuild.Sarif;
 
 public class SarifReport
 {

@@ -1,6 +1,6 @@
-namespace Agoda.CodeCompass.MSBuild;
+namespace Agoda.CodeCompass.MSBuild.Sarif;
 
-public class Region
+public class V1Region
 {
     public int StartLine { get; set; }
     public int StartColumn { get; set; }

@@ -1,4 +1,8 @@
 ﻿using System.Text.Json;
+using Agoda.CodeCompass.MSBuild.Sarif;
+using Microsoft.Build.Framework;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
+using NSubstitute;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
 using Shouldly;
@@ -10,16 +14,18 @@ public class SarifConversionTests
 {
     private readonly string _writeSarifPath = "TestData/write.sarif";
     private readonly string _sampleSarifPath = "TestData/sample.sarif";
+    private readonly IBuildEngine _buildEngine = Substitute.For<IBuildEngine>();
 
     [Test]
     public async Task ConvertSarif_WithValidInput_ShouldAddTechDebtProperties()
     {
-        var outfile = "TestData/" + Guid.NewGuid().ToString();
+        var outfile = "TestData/" + Guid.NewGuid();
         // Arrange
         var task = new TechDebtSarifTask
         {
             InputPath = _sampleSarifPath,
-            OutputPath = outfile
+            OutputPath = outfile,
+            BuildEngine = _buildEngine
         };
 
         // Act
@@ -49,14 +55,39 @@ public class SarifConversionTests
         var task = new TechDebtSarifTask
         {
             InputPath = "TestData/invalid.sarif",
-            OutputPath = Guid.NewGuid().ToString()
+            OutputPath = Guid.NewGuid().ToString(),
+            BuildEngine = _buildEngine
         };
-
+        
         var result = task.Execute();
 
         result.ShouldBeFalse();
     }
 
+    [Test]
+    public async Task ConvertSarif_WithV1FromTestData_ShouldHave1Violation()
+    {
+        var outfile = "TestData/" + Guid.NewGuid();
+        var task = new TechDebtSarifTask
+        {
+            InputPath = "TestData/v1.sarif",
+            OutputPath = outfile,
+            BuildEngine = _buildEngine
+        };
+
+        var result = task.Execute();
+
+        result.ShouldBeTrue();
+
+        var outputJson = await File.ReadAllTextAsync(outfile);
+        var output = JsonSerializer.Deserialize<SarifReport>(outputJson, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+        output.Runs[0].Results.Count.ShouldBe(1);
+
+        var results = output.Runs[0].Results;
+        results[0].RuleId.ShouldBe("CA1707");
+
+    }
     [Test]
     public async Task ConvertSarif_WithMultipleRules_ShouldPreserveRuleMetadata()
     {
@@ -78,11 +109,12 @@ public class SarifConversionTests
 
         await File.WriteAllTextAsync(_writeSarifPath,
             JsonSerializer.Serialize(sarif, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
-        var outfile = "TestData/" + Guid.NewGuid().ToString();
+        var outfile = "TestData/" + Guid.NewGuid();
         var task = new TechDebtSarifTask
         {
             InputPath = _writeSarifPath,
-            OutputPath = outfile
+            OutputPath = outfile,
+            BuildEngine = _buildEngine
         };
 
         // Act

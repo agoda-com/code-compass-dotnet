@@ -1,13 +1,17 @@
 <Project>
 	<UsingTask
 		TaskName="Agoda.CodeCompass.MSBuild.TechDebtSarifTask"
-		AssemblyFile="$(MSBuildThisFileDirectory)../tools/net8/Agoda.CodeCompass.MSBuild.dll" />
+		AssemblyFile="$(MSBuildThisFileDirectory)../tools/net8.0/Agoda.CodeCompass.MSBuild.dll" />
+
+	<ItemGroup>
+		<TaskAssemblyReference Include="$(MSBuildThisFileDirectory)..\net8.0\tools\Microsoft.CodeAnalysis.dll" />
+		<TaskAssemblyReference Include="$(MSBuildThisFileDirectory)..\net8.0\tools\Microsoft.CodeAnalysis.CSharp.dll" />
+	</ItemGroup>
 
 	<Target Name="ProcessTechDebtSarif" AfterTargets="Build" Condition="'$(ErrorLog)' != ''">
 		<PropertyGroup>
 			<TechDebtSarifPath>$(MSBuildProjectDirectory)/buildlog.sarif</TechDebtSarifPath>
 		</PropertyGroup>
-
 		<TechDebtSarifTask
 			InputPath="$(ErrorLog)"
 			OutputPath="$(TechDebtSarifPath)" />
