@@ -10,6 +10,12 @@ using Formatting = System.Xml.Formatting;
 
 public class SarifReporter
 {
+    private static JsonSerializerSettings _jsonSettings = new JsonSerializerSettings
+    {
+        ContractResolver = new CamelCasePropertyNamesContractResolver(),
+        Error = HandleDeserializationError,
+        Formatting = Newtonsoft.Json.Formatting.Indented,
+    };
     private static void HandleDeserializationError(object sender, ErrorEventArgs errorArgs)
     {
         // Log the error but don't throw it
@@ -19,12 +25,6 @@ public class SarifReporter
     }
     public static string AddTechDebtToSarif(string sarifContent)
     {
-        var jsonSettings = new JsonSerializerSettings
-        {
-            ContractResolver = new CamelCasePropertyNamesContractResolver(),
-            Error = HandleDeserializationError
-
-        };
 
         // Detect version
         var jObject = JObject.Parse(sarifContent);
@@ -32,8 +32,8 @@ public class SarifReporter
 
         return version switch
         {
-            "1.0.0" => AddTechDebtToSarifV1(sarifContent, jsonSettings),
-            "2.1.0" => AddTechDebtToSarifV2(sarifContent, jsonSettings),
+            "1.0.0" => AddTechDebtToSarifV1(sarifContent, _jsonSettings),
+            "2.1.0" => AddTechDebtToSarifV2(sarifContent, _jsonSettings),
             _ => throw new NotSupportedException($"Unsupported SARIF version: {version}")
         };
     }

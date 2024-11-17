@@ -21,8 +21,8 @@ public class SarifConversionTests
     private JsonSerializerSettings _jsonSettings = new JsonSerializerSettings
     {
         ContractResolver = new CamelCasePropertyNamesContractResolver(),
-        Error = HandleDeserializationError
-
+        Error = HandleDeserializationError,
+        Formatting = Formatting.Indented,
     };
 
     [Test]
