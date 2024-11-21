@@ -1,11 +1,27 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using Agoda.CodeCompass.Models;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+using Microsoft.CodeAnalysis.Diagnostics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Xml.Linq;
 
 namespace Agoda.CodeCompass.Data;
 
 public static class TechDebtMetadata
 {
-    private static readonly Dictionary<string, TechDebtInfo> RuleMetadata = new()
+    private static readonly ConcurrentDictionary<string, TechDebtInfo> AnalyzerMetadata = new();
+
+    internal static readonly Dictionary<string, TechDebtInfo> PredefinedMetadata = new()
     {
         // Agoda Rules
         ["AG0002"] = new TechDebtInfo { Minutes = 15, Category = "AgodaSpecific", Priority = "Medium", Rationale = "Agoda-specific implementation issue", Recommendation = "Follow Agoda's implementation guidelines" },
@@ -294,22 +310,188 @@ public static class TechDebtMetadata
         ["SUP003"] = new TechDebtInfo { Minutes = 15, Category = "BestPractices", Priority = "Medium", Rationale = "Follow Supply guideline", Recommendation = "No Direct HttpContext Access, go via our Library" }
     };
 
-    public static TechDebtInfo? GetTechDebtInfo(string ruleId) =>
-        RuleMetadata.TryGetValue(ruleId, out var info) ? info : null;
 
-    public static IEnumerable<string> GetAllRuleIds() => RuleMetadata.Keys;
+    private static List<DiagnosticAnalyzer> GetProjectAnalyzers(string projectPath)
+    {
+        var analyzerPaths = GetAnalyzerPaths(projectPath);
+        var analyzers = new List<DiagnosticAnalyzer>();
 
-    public static IEnumerable<string> GetRuleIdsByCategory(string category) =>
-        RuleMetadata.Where(kvp => kvp.Value.Category == category)
-            .Select(kvp => kvp.Key);
+        foreach (var analyzerPath in analyzerPaths)
+        {
+            try
+            {
+                var assembly = Assembly.LoadFrom(analyzerPath);
 
-    public static int GetEstimatedTotalMinutes(IEnumerable<string> ruleIds) =>
-        ruleIds.Sum(ruleId => GetTechDebtInfo(ruleId)?.Minutes ?? 0);
+                var analyzerTypes = assembly.GetTypes()
+                    .Where(t => !t.IsAbstract && !t.IsInterface &&
+                               typeof(DiagnosticAnalyzer).IsAssignableFrom(t));
 
-    public static IEnumerable<string> GetAllCategories() =>
-        RuleMetadata.Select(kvp => kvp.Value.Category).Distinct();
+                foreach (var analyzerType in analyzerTypes)
+                {
+                    if (Activator.CreateInstance(analyzerType) is DiagnosticAnalyzer analyzer)
+                    {
+                        analyzers.Add(analyzer);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log but continue with other analyzers
+                Console.WriteLine($"Error loading analyzer {analyzerPath}: {ex.Message}");
+            }
+        }
 
-    public static IDictionary<string, int> GetTotalMinutesByCategory() =>
-        RuleMetadata.GroupBy(kvp => kvp.Value.Category)
-            .ToDictionary(g => g.Key, g => g.Sum(kvp => kvp.Value.Minutes));
+        return analyzers;
+    }
+
+    private static List<string> GetAnalyzerPaths(string projectPath)
+    {
+        var analyzerPaths = new List<string>();
+        var projectDir = Path.GetDirectoryName(projectPath);
+
+        // Load project file
+        var projectXml = XDocument.Load(projectPath);
+        var ns = projectXml.Root.GetDefaultNamespace();
+
+        // Get direct analyzer references
+        var analyzerReferences = projectXml.Descendants(ns + "Analyzer")
+            .Select(x => x.Attribute("Include")?.Value)
+            .Where(x => !string.IsNullOrEmpty(x));
+
+        analyzerPaths.AddRange(analyzerReferences);
+
+        // Get package references
+        var packageReferences = projectXml.Descendants(ns + "PackageReference")
+            .Select(x => new
+            {
+                Id = x.Attribute("Include")?.Value,
+                Version = x.Attribute("Version")?.Value
+            })
+            .Where(x => !string.IsNullOrEmpty(x.Id) && !string.IsNullOrEmpty(x.Version));
+
+        foreach (var package in packageReferences)
+        {
+            var packagePath = Path.Combine(
+                projectDir,
+                "obj",
+                "project.nuget.cache");
+
+            if (File.Exists(packagePath))
+            {
+                var nugetCache = XDocument.Load(packagePath);
+                var packageFolder = nugetCache.Descendants("PackageFolder")
+                    .FirstOrDefault(x => x.Attribute("id")?.Value == package.Id &&
+                                       x.Attribute("version")?.Value == package.Version);
+
+                if (packageFolder != null)
+                {
+                    var analyzerDir = Path.Combine(packageFolder.Value, "analyzers", "dotnet");
+                    if (Directory.Exists(analyzerDir))
+                    {
+                        analyzerPaths.AddRange(Directory.GetFiles(analyzerDir, "*.dll"));
+                    }
+                }
+            }
+        }
+
+        return analyzerPaths;
+    }
+    private static string GetPriorityFromSeverity(DiagnosticSeverity severity)
+    {
+        return severity switch
+        {
+            DiagnosticSeverity.Error => "High",
+            DiagnosticSeverity.Warning => "Medium",
+            _ => "Low"
+        };
+    }
+
+    public static TechDebtInfo? GetTechDebtInfo(string ruleId)
+    {
+        // Check predefined first, then analyzer metadata
+        if (PredefinedMetadata.TryGetValue(ruleId, out var predefinedInfo))
+        {
+            return predefinedInfo;
+        }
+
+        if (AnalyzerMetadata.TryGetValue(ruleId, out var analyzerInfo))
+        {
+            return analyzerInfo;
+        }
+
+        return null;
+    }
+
+    public static IEnumerable<string> GetAllRuleIds()
+    {
+        return PredefinedMetadata.Keys
+            .Concat(AnalyzerMetadata.Keys)
+            .Distinct();
+    }
+
+    public static void UpdateMetadataFromDiagnostics(IEnumerable<Diagnostic> diagnostics)
+    {
+        foreach (var diagnostic in diagnostics)
+        {
+            var ruleId = diagnostic.Id;
+            var descriptor = diagnostic.Descriptor;
+
+            // Skip if we already have predefined metadata for this rule
+            if (PredefinedMetadata.ContainsKey(ruleId))
+                continue;
+
+            var properties = diagnostic.Properties ?? ImmutableDictionary<string, string>.Empty;
+
+            // Try to get tech debt minutes from properties
+            int minutes = 15; // Default value
+            if (properties.TryGetValue("techDebtMinutes", out var techDebtMinutesStr))
+            {
+                if (!int.TryParse(techDebtMinutesStr, out minutes))
+                {
+                    minutes = 15; // Fallback to default if parsing fails
+                }
+            }
+
+            // Determine category based on descriptor or fallback to a default
+            string category = "BestPractices"; // Default category
+            if (properties.TryGetValue("category", out var categoryFromProps))
+            {
+                category = categoryFromProps;
+            }
+            else if (descriptor.Category != null)
+            {
+                category = descriptor.Category;
+            }
+
+            // Determine priority based on diagnostic severity
+            string priority = GetPriorityFromSeverity(descriptor.DefaultSeverity);
+
+            // Create rationale from diagnostic description
+            string rationale = descriptor.Description.ToString();
+            if (properties.TryGetValue("rationale", out var rationaleFromProps))
+            {
+                rationale = rationaleFromProps;
+            }
+
+            // Get recommendation from help link or message
+            string recommendation = descriptor.HelpLinkUri ?? descriptor.MessageFormat.ToString();
+            if (properties.TryGetValue("recommendation", out var recommendationFromProps))
+            {
+                recommendation = recommendationFromProps;
+            }
+
+            // Create or update the tech debt info
+            var techDebtInfo = new TechDebtInfo
+            {
+                Minutes = minutes,
+                Category = category,
+                Priority = priority,
+                Rationale = rationale,
+                Recommendation = recommendation
+            };
+
+            // Add to analyzer metadata if not already in predefined
+            AnalyzerMetadata.TryAdd(ruleId, techDebtInfo);
+        }
+    }
 }

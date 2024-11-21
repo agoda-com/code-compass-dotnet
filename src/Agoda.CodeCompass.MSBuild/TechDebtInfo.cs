@@ -1,3 +1,8 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
+using System.Collections.Immutable;
+using Microsoft.CodeAnalysis.MSBuild;
+
 namespace Agoda.CodeCompass.Models;
 
 public class TechDebtInfo
@@ -7,4 +12,10 @@ public class TechDebtInfo
     public required string Priority { get; init; }
     public string? Rationale { get; init; }
     public string? Recommendation { get; init; }
+
+    //    public async Task<TechDebtInfo> From(DiagnosticAnalyzer analyzer)
+    public static async Task From(DiagnosticAnalyzer analyzer)
+    {
+
+    }
 }
