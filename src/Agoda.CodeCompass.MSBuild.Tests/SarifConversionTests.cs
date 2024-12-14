@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Agoda.CodeCompass.MSBuild.Sarif;
+﻿using Agoda.CodeCompass.MSBuild.Sarif;
 using Microsoft.Build.Framework;
 using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Newtonsoft.Json.Serialization;
@@ -18,30 +17,36 @@ public class SarifConversionTests
     private readonly string _writeSarifPath = "TestData/write.sarif";
     private readonly string _sampleSarifPath = "TestData/sample.sarif";
     private readonly IBuildEngine _buildEngine = Substitute.For<IBuildEngine>();
-    private JsonSerializerSettings _jsonSettings = new JsonSerializerSettings
+    private JsonSerializerSettings _jsonSettings = new()
     {
         ContractResolver = new CamelCasePropertyNamesContractResolver(),
         Error = HandleDeserializationError,
         Formatting = Formatting.Indented,
     };
 
+    public SarifConversionTests()
+    {
+        _tempSolutionDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(_tempSolutionDir);
+    }
+    private string _tempSolutionDir;
+
     [Test]
     public async Task ConvertSarif_WithValidInput_ShouldAddTechDebtProperties()
     {
+        SetupTests.SetupSolutionAndProject(_tempSolutionDir);
         var outfile = "TestData/" + Guid.NewGuid();
         // Arrange
         var task = new TechDebtSarifTask
         {
             InputPath = _sampleSarifPath,
             OutputPath = outfile,
-            BuildEngine = _buildEngine
+            BuildEngine = _buildEngine,
+            SolutionPath = _tempSolutionDir
         };
 
         // Act
-        var result = task.Execute();
-
-        // Assert
-        result.ShouldBeTrue();
+        task.Execute().ShouldBeTrue();
 
         var jsonSettings = new JsonSerializerSettings
         {
@@ -67,17 +72,17 @@ public class SarifConversionTests
     [Test]
     public async Task ConvertSarif_WithV1FromTestData_ShouldHave1Violation()
     {
+        SetupTests.SetupSolutionAndProject(_tempSolutionDir);
         var outfile = "TestData/" + Guid.NewGuid();
         var task = new TechDebtSarifTask
         {
             InputPath = "TestData/v1.sarif",
             OutputPath = outfile,
-            BuildEngine = _buildEngine
+            BuildEngine = _buildEngine,
+            SolutionPath = _tempSolutionDir
         };
 
-        var result = task.Execute();
-
-        result.ShouldBeTrue();
+        task.Execute().ShouldBeTrue();
 
         var outputJson = await File.ReadAllTextAsync(outfile);
         var output = JsonConvert.DeserializeObject<SarifV1Report>(outputJson, _jsonSettings);
@@ -100,6 +105,7 @@ public class SarifConversionTests
     [Test]
     public async Task ConvertSarif_WithMultipleRules_ShouldPreserveRuleMetadata()
     {
+        SetupTests.SetupSolutionAndProject(_tempSolutionDir);
         // Arrange
         var sarif = new SarifReport
         {
@@ -116,18 +122,20 @@ public class SarifConversionTests
            }
         };
 
+        var outfile = "TestData/" + Guid.NewGuid();
         await File.WriteAllTextAsync(_writeSarifPath,
             JsonConvert.SerializeObject(sarif, _jsonSettings));
-        var outfile = "TestData/" + Guid.NewGuid();
+
         var task = new TechDebtSarifTask
         {
             InputPath = _writeSarifPath,
             OutputPath = outfile,
-            BuildEngine = _buildEngine
+            BuildEngine = _buildEngine,
+            SolutionPath = _tempSolutionDir
         };
 
         // Act
-        task.Execute();
+        task.Execute().ShouldBeTrue();
 
         // Assert
         var outputJson = await File.ReadAllTextAsync(outfile);

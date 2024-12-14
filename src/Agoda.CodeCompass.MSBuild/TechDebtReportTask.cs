@@ -12,12 +12,38 @@ using System.Text.Json;
 using Task = Microsoft.Build.Utilities.Task;
 
 namespace Agoda.CodeCompass.MSBuild;
+
 public class TechDebtSarifTask : Task
 {
     [Required]
     public string InputPath { get; set; } = string.Empty;
+
     [Required]
     public string OutputPath { get; set; } = string.Empty;
+    
+    public string SolutionPath { get; set; } = string.Empty;
+
+    private string ResolveSolutionPath()
+    {
+        if (!string.IsNullOrEmpty(SolutionPath))
+        {
+            return SolutionPath;
+        }
+
+        var solutionDir = Environment.GetEnvironmentVariable("SolutionDir");
+        if (string.IsNullOrEmpty(solutionDir))
+        {
+            throw new InvalidOperationException("Neither SolutionPath property nor SolutionDir environment variable is set.");
+        }
+
+        var solutionFile = Directory.EnumerateFiles(solutionDir, "*.sln").FirstOrDefault();
+        if (solutionFile == null)
+        {
+            throw new FileNotFoundException("Solution file not found.", solutionDir);
+        }
+
+        return solutionFile;
+    }
 
     public override bool Execute()
     {
@@ -25,7 +51,7 @@ public class TechDebtSarifTask : Task
         try
         {
             var inputSarif = File.ReadAllText(InputPath);
-            var solutionPath = Environment.GetEnvironmentVariable("SolutionDir");
+            var solutionPath = ResolveSolutionPath();
             if (string.IsNullOrEmpty(solutionPath))
             {
                 throw new InvalidOperationException("SolutionDir is not set.");

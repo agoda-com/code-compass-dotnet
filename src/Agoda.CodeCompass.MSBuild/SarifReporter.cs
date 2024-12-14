@@ -16,6 +16,7 @@ public class SarifReporter
         Error = HandleDeserializationError,
         Formatting = Newtonsoft.Json.Formatting.Indented,
     };
+
     private static void HandleDeserializationError(object sender, ErrorEventArgs errorArgs)
     {
         // Log the error but don't throw it
@@ -23,24 +24,24 @@ public class SarifReporter
         Console.WriteLine($"Warning during SARIF processing: {currentError}");
         errorArgs.ErrorContext.Handled = true;
     }
+
     public static string AddTechDebtToSarif(string sarifContent)
     {
-
         // Detect version
         var jObject = JObject.Parse(sarifContent);
         var version = jObject["version"]?.ToString();
 
         return version switch
         {
-            "1.0.0" => AddTechDebtToSarifV1(sarifContent, _jsonSettings),
-            "2.1.0" => AddTechDebtToSarifV2(sarifContent, _jsonSettings),
+            "1.0.0" => AddTechDebtToSarifV1(sarifContent),
+            "2.1.0" => AddTechDebtToSarifV2(sarifContent),
             _ => throw new NotSupportedException($"Unsupported SARIF version: {version}")
         };
     }
 
-    private static string AddTechDebtToSarifV1(string sarifContent, JsonSerializerSettings jsonSettings)
+    private static string AddTechDebtToSarifV1(string sarifContent)
     {
-        var report = JsonConvert.DeserializeObject<SarifV1Report>(sarifContent, jsonSettings);
+        var report = JsonConvert.DeserializeObject<SarifV1Report>(sarifContent, _jsonSettings);
 
         // Add tech debt properties to results for V1
         foreach (var run in report.Runs)
@@ -51,12 +52,12 @@ public class SarifReporter
             }
         }
 
-        return JsonConvert.SerializeObject(report, jsonSettings);
+        return JsonConvert.SerializeObject(report, _jsonSettings);
     }
 
-    private static string AddTechDebtToSarifV2(string sarifContent, JsonSerializerSettings jsonSettings)
+    private static string AddTechDebtToSarifV2(string sarifContent)
     {
-        var report = JsonConvert.DeserializeObject<SarifReport>(sarifContent, jsonSettings);
+        var report = JsonConvert.DeserializeObject<SarifReport>(sarifContent, _jsonSettings);
 
         // Add tech debt properties to rules
         if (report.Runs?.FirstOrDefault()?.Tool?.Driver?.Rules != null)
@@ -76,7 +77,7 @@ public class SarifReporter
             }
         }
 
-        return JsonConvert.SerializeObject(report, jsonSettings);
+        return JsonConvert.SerializeObject(report, _jsonSettings);
     }
 
     private static TechDebtProperties GetTechDebtProperties(string ruleId)

@@ -26,7 +26,7 @@ public static class TechDebtMetadata
         // Agoda Rules
         ["AG0002"] = new TechDebtInfo { Minutes = 15, Category = "AgodaSpecific", Priority = "Medium", Rationale = "Agoda-specific implementation issue", Recommendation = "Follow Agoda's implementation guidelines" },
         ["AG0003"] = new TechDebtInfo { Minutes = 20, Category = "AgodaSpecific", Priority = "Medium", Rationale = "Agoda-specific implementation issue", Recommendation = "Follow Agoda's implementation guidelines" },
-        ["AG0005"] = new TechDebtInfo { Minutes = 25, Category = "AgodaSpecific", Priority = "High", Rationale = "Agoda-specific architecture violation", Recommendation = "Restructure according to architecture guidelines" },
+        ["AG0005"] = new TechDebtInfo { Minutes = 1, Category = "AgodaSpecific", Priority = "High", Rationale = "Agoda-specific architecture violation", Recommendation = "Restructure according to architecture guidelines" },
         ["AG0009"] = new TechDebtInfo { Minutes = 15, Category = "AgodaSpecific", Priority = "Medium", Rationale = "Agoda-specific naming violation", Recommendation = "Follow naming conventions" },
         ["AG0010"] = new TechDebtInfo { Minutes = 20, Category = "AgodaSpecific", Priority = "Medium", Rationale = "Agoda-specific implementation issue", Recommendation = "Follow implementation guidelines" },
         ["AG0011"] = new TechDebtInfo { Minutes = 15, Category = "AgodaSpecific", Priority = "Medium", Rationale = "Agoda-specific implementation issue", Recommendation = "Follow implementation guidelines" },
@@ -311,91 +311,7 @@ public static class TechDebtMetadata
     };
 
 
-    private static List<DiagnosticAnalyzer> GetProjectAnalyzers(string projectPath)
-    {
-        var analyzerPaths = GetAnalyzerPaths(projectPath);
-        var analyzers = new List<DiagnosticAnalyzer>();
 
-        foreach (var analyzerPath in analyzerPaths)
-        {
-            try
-            {
-                var assembly = Assembly.LoadFrom(analyzerPath);
-
-                var analyzerTypes = assembly.GetTypes()
-                    .Where(t => !t.IsAbstract && !t.IsInterface &&
-                               typeof(DiagnosticAnalyzer).IsAssignableFrom(t));
-
-                foreach (var analyzerType in analyzerTypes)
-                {
-                    if (Activator.CreateInstance(analyzerType) is DiagnosticAnalyzer analyzer)
-                    {
-                        analyzers.Add(analyzer);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log but continue with other analyzers
-                Console.WriteLine($"Error loading analyzer {analyzerPath}: {ex.Message}");
-            }
-        }
-
-        return analyzers;
-    }
-
-    private static List<string> GetAnalyzerPaths(string projectPath)
-    {
-        var analyzerPaths = new List<string>();
-        var projectDir = Path.GetDirectoryName(projectPath);
-
-        // Load project file
-        var projectXml = XDocument.Load(projectPath);
-        var ns = projectXml.Root.GetDefaultNamespace();
-
-        // Get direct analyzer references
-        var analyzerReferences = projectXml.Descendants(ns + "Analyzer")
-            .Select(x => x.Attribute("Include")?.Value)
-            .Where(x => !string.IsNullOrEmpty(x));
-
-        analyzerPaths.AddRange(analyzerReferences);
-
-        // Get package references
-        var packageReferences = projectXml.Descendants(ns + "PackageReference")
-            .Select(x => new
-            {
-                Id = x.Attribute("Include")?.Value,
-                Version = x.Attribute("Version")?.Value
-            })
-            .Where(x => !string.IsNullOrEmpty(x.Id) && !string.IsNullOrEmpty(x.Version));
-
-        foreach (var package in packageReferences)
-        {
-            var packagePath = Path.Combine(
-                projectDir,
-                "obj",
-                "project.nuget.cache");
-
-            if (File.Exists(packagePath))
-            {
-                var nugetCache = XDocument.Load(packagePath);
-                var packageFolder = nugetCache.Descendants("PackageFolder")
-                    .FirstOrDefault(x => x.Attribute("id")?.Value == package.Id &&
-                                       x.Attribute("version")?.Value == package.Version);
-
-                if (packageFolder != null)
-                {
-                    var analyzerDir = Path.Combine(packageFolder.Value, "analyzers", "dotnet");
-                    if (Directory.Exists(analyzerDir))
-                    {
-                        analyzerPaths.AddRange(Directory.GetFiles(analyzerDir, "*.dll"));
-                    }
-                }
-            }
-        }
-
-        return analyzerPaths;
-    }
     private static string GetPriorityFromSeverity(DiagnosticSeverity severity)
     {
         return severity switch
@@ -421,14 +337,7 @@ public static class TechDebtMetadata
 
         return null;
     }
-
-    public static IEnumerable<string> GetAllRuleIds()
-    {
-        return PredefinedMetadata.Keys
-            .Concat(AnalyzerMetadata.Keys)
-            .Distinct();
-    }
-
+    
     public static void UpdateMetadataFromDiagnostics(IEnumerable<Diagnostic> diagnostics)
     {
         foreach (var diagnostic in diagnostics)
@@ -444,7 +353,7 @@ public static class TechDebtMetadata
 
             // Try to get tech debt minutes from properties
             int minutes = 15; // Default value
-            if (properties.TryGetValue("techDebtMinutes", out var techDebtMinutesStr))
+            if (properties.TryGetValue("TechDebtInMinutes", out var techDebtMinutesStr))
             {
                 if (!int.TryParse(techDebtMinutesStr, out minutes))
                 {
@@ -454,7 +363,7 @@ public static class TechDebtMetadata
 
             // Determine category based on descriptor or fallback to a default
             string category = "BestPractices"; // Default category
-            if (properties.TryGetValue("category", out var categoryFromProps))
+            if (properties.TryGetValue("Category", out var categoryFromProps))
             {
                 category = categoryFromProps;
             }
@@ -468,14 +377,14 @@ public static class TechDebtMetadata
 
             // Create rationale from diagnostic description
             string rationale = descriptor.Description.ToString();
-            if (properties.TryGetValue("rationale", out var rationaleFromProps))
+            if (properties.TryGetValue("Rationale", out var rationaleFromProps))
             {
                 rationale = rationaleFromProps;
             }
 
             // Get recommendation from help link or message
             string recommendation = descriptor.HelpLinkUri ?? descriptor.MessageFormat.ToString();
-            if (properties.TryGetValue("recommendation", out var recommendationFromProps))
+            if (properties.TryGetValue("Recommendation", out var recommendationFromProps))
             {
                 recommendation = recommendationFromProps;
             }
